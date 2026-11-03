@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HackerAI by Dominik Kozok – GhostProtocol</title>
+<style>
+  :root {
+    --bg: #0a0e14; --bg2: #0d1117; --panel: #111820; --border: #1e2a3a;
+    --green: #00ff9c; --green-dim: #00b36e; --cyan: #00e5ff; --yellow: #ffd166;
+    --red: #ff4d6d; --magenta: #c77dff; --text: #c9d1d9; --text-dim: #6e7681;
+    --user: #ffd166; --ai: #00ff9c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; background: var(--bg); color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Courier New', monospace;
+    font-size: 14px; line-height: 1.45; overflow: hidden;
+  }
+  body { display: flex; flex-direction: column; max-width: 900px; margin: 0 auto; }
+  header {
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    padding: 10px 14px; display: flex; align-items: center;
+    justify-content: space-between; flex-shrink: 0; gap: 8px;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .logo-icon {
+    width: 28px; height: 28px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--green), var(--cyan));
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-weight: bold; color: #000; font-size: 14px;
+  }
+  .logo-text { font-weight: 700; color: var(--green); }
+  .logo-sub { font-size: 11px; color: var(--text-dim); }
+  .status-dot {
+    width: 8px; height: 8px; background: var(--green); border-radius: 50%;
+    box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite;
+  }
+  .status-dot.off { background: var(--text-dim); box-shadow: none; animation: none; }
+  .status-dot.err { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .header-right { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-dim); }
+  .btn-icon {
+    background: var(--panel); border: 1px solid var(--border); color: var(--cyan);
+    border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  #terminal { flex: 1; overflow-y: auto; padding: 14px; -webkit-overflow-scrolling: touch; }
+  .msg { margin-bottom: 14px; animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .msg-header { font-size: 11px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .msg-user .msg-header { color: var(--user); }
+  .msg-ai .msg-header { color: var(--ai); }
+  .msg-sys .msg-header { color: var(--magenta); }
+  .msg-body {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; white-space: pre-wrap; word-break: break-word;
+  }
+  .msg-user .msg-body { border-left: 3px solid var(--user); }
+  .msg-ai .msg-body { border-left: 3px solid var(--ai); }
+  .msg-sys .msg-body { border-left: 3px solid var(--magenta); background: #15101e; }
+  .msg-body img.preview {
+    max-width: 100%; max-height: 220px; border-radius: 8px; margin-top: 8px; display: block;
+  }
+  .badge {
+    font-size: 10px; padding: 1px 6px; border-radius: 4px;
+    background: #1a2332; border: 1px solid var(--border);
+  }
+  .badge.local { color: var(--yellow); }
+  .badge.live { color: var(--green); }
+  .banner { color: var(--green); font-size: 10px; line-height: 1.15; margin-bottom: 12px; opacity: .9; overflow-x: auto; }
+  .banner pre { font-family: inherit; }
+  .chips {
+    display: flex; gap: 6px; padding: 8px 12px 0; overflow-x: auto;
+    flex-shrink: 0; background: var(--bg2);
+  }
+  .chip {
+    background: var(--panel); border: 1px solid var(--border); color: var(--cyan);
+    padding: 6px 12px; border-radius: 20px; font-size: 12px; white-space: nowrap; cursor: pointer;
+  }
+  .attach-bar {
+    display: none; padding: 8px 12px; background: var(--bg2); border-top: 1px solid var(--border);
+    align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .attach-bar.show { display: flex; }
+  .attach-bar img {
+    height: 56px; width: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border);
+  }
+  .attach-bar .meta { flex: 1; font-size: 12px; color: var(--text-dim); min-width: 0; }
+  .attach-bar .meta b { color: var(--cyan); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .attach-bar button {
+    background: transparent; border: 1px solid var(--border); color: var(--red);
+    border-radius: 6px; padding: 6px 10px; cursor: pointer; font-family: inherit;
+  }
+  .input-area {
+    flex-shrink: 0; background: var(--bg2); border-top: 1px solid var(--border);
+    padding: 10px 12px; display: flex; gap: 8px; align-items: flex-end;
+  }
+  #input {
+    flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 12px 14px; font-family: inherit; font-size: 15px;
+    resize: none; min-height: 44px; max-height: 120px; outline: none;
+  }
+  #input:focus { border-color: var(--green-dim); }
+  #input::placeholder { color: var(--text-dim); }
+  .icon-btn {
+    background: var(--panel); border: 1px solid var(--border); color: var(--cyan);
+    border-radius: 8px; width: 44px; height: 44px; font-size: 18px; cursor: pointer;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  }
+  #send {
+    background: var(--green); color: #000; border: none; border-radius: 8px;
+    width: 48px; height: 44px; font-weight: 700; font-size: 18px; cursor: pointer;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .thinking { color: var(--text-dim); font-style: italic; font-size: 12px; margin: 4px 0 10px 4px; }
+  .modal-bg {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    z-index: 100; align-items: flex-end; justify-content: center;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 16px 16px 0 0;
+    width: 100%; max-width: 900px; max-height: 85vh; overflow-y: auto; padding: 20px;
+  }
+  .modal h2 { color: var(--green); margin-bottom: 12px; font-size: 16px; }
+  .modal label { display: block; font-size: 12px; color: var(--text-dim); margin: 12px 0 4px; }
+  .modal select, .modal input {
+    width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 12px; font-family: inherit; font-size: 14px;
+  }
+  .modal .row { display: flex; gap: 8px; margin-top: 16px; }
+  .modal .btn {
+    flex: 1; padding: 12px; border-radius: 8px; border: none; font-family: inherit;
+    font-weight: 600; cursor: pointer; font-size: 14px;
+  }
+  .btn-primary { background: var(--green); color: #000; }
+  .btn-secondary { background: var(--panel); color: var(--text); border: 1px solid var(--border) !important; }
+  .hint { font-size: 11px; color: var(--text-dim); margin-top: 8px; line-height: 1.4; }
+  .hint a { color: var(--cyan); }
+  #fileInput { display: none; }
+  #terminal::-webkit-scrollbar { width: 6px; }
+  #terminal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .icon-btn.mic {
+    color: var(--cyan);
+  }
+  .icon-btn.mic.listening {
+    background: #3a1520;
+    border-color: var(--red);
+    color: var(--red);
+    animation: pulse 1s infinite;
+    box-shadow: 0 0 12px rgba(255, 77, 109, 0.45);
+  }
+  .icon-btn.speak-on {
+    border-color: var(--green-dim);
+    color: var(--green);
+  }
+  .voice-hint {
+    font-size: 11px;
+    color: var(--red);
+    text-align: center;
+    padding: 4px 12px 0;
+    display: none;
+    flex-shrink: 0;
+    background: var(--bg2);
+  }
+  .voice-hint.show { display: block; }
+
+  .credit {
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 6px 12px 8px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    letter-spacing: 0.3px;
+  }
+  .credit b { color: var(--green); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">H</div>
+    <div>
+      <div class="logo-text">HackerAI</div>
+      <div class="logo-sub">by Dominik Kozok © · <span id="modeLabel">LIVE AI</span></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="status-dot" id="dot"></span>
+    <button class="btn-icon" id="btnSettings">⚙ API</button>
+  </div>
+</header>
+
+<div class="chips" id="chips">
+  <div class="chip" data-q="help">/help</div>
+  <div class="chip" data-q="status">/status</div>
+  <div class="chip" data-q="cześć">cześć</div>
+  <div class="chip" data-q="opisz to zdjęcie">opisz zdjęcie</div>
+  <div class="chip" data-q="co jest na obrazku?">co na obrazku?</div>
+</div>
+
+<div id="terminal"></div>
+
+<div class="attach-bar" id="attachBar">
+  <img id="attachThumb" alt="">
+  <div class="meta"><b id="attachName">plik</b><span id="attachInfo"></span></div>
+  <button type="button" id="attachClear">✕</button>
+</div>
+
+<div class="voice-hint" id="voiceHint">🎤 Słucham… mów teraz</div>
+<div class="input-area">
+  <button class="icon-btn" id="btnAttach" title="Dodaj zdjęcie/plik">📎</button>
+  <button class="icon-btn mic" id="btnMic" title="Mów (tryb głosowy)">🎤</button>
+  <textarea id="input" rows="1" placeholder="Pytaj, dołącz zdjęcie lub mów 🎤..." autofocus></textarea>
+  <button class="icon-btn" id="btnSpeak" title="Czytaj odpowiedzi na głos">🔊</button>
+  <button id="send">↵</button>
+</div>
+
+<div class="credit">HackerAI by <b>Dominik Kozok</b> ©</div>
+<input type="file" id="fileInput" accept="image/*,.pdf,.txt,.md,.json,.csv,.log">
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h2>⚙ Połączenie z AI</h2>
+    <label>Tryb</label>
+    <select id="cfgMode">
+      <option value="live">Prawdziwe AI (darmowe)</option>
+      <option value="local">Tylko lokalne</option>
+    </select>
+    <label>Dostawca</label>
+    <select id="cfgProvider">
+      <option value="groq">Groq (tekst + zdjęcia via Qwen)</option>
+      <option value="gemini">Google Gemini (tekst + zdjęcia + PDF)</option>
+      <option value="llm7">LLM7.io</option>
+      <option value="openrouter">OpenRouter</option>
+    </select>
+    <label>API Key</label>
+    <input type="password" id="cfgKey" placeholder="gsk_... / AIza...">
+    <div class="hint">
+      <b>Zdjęcia:</b> Groq używa modelu <code>qwen/qwen3.8-27b</code> (vision).<br>
+      Gemini najlepiej czyta też PDF i dokumenty.<br>
+      Klucz zapisuje się tylko w przeglądarce.
+    </div>
+    <div class="row">
+      <button class="btn btn-secondary" id="btnClose">Anuluj</button>
+      <button class="btn btn-primary" id="btnSave">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SYSTEM_PROMPT = `Jesteś HackerAI (GhostProtocol) – terminalowy asystent z cyber-klimatem.
+Odpowiadasz po polsku (chyba że user pisze po EN). Styl: konkretny, techniczny, lekko sarkastyczny.
+Gdy dostajesz zdjęcie/plik: opisz co widzisz, odczytaj tekst (OCR), analizuj kod/zrzuty, pomagaj praktycznie.
+NIE pomagasz w nielegalnych atakach. Nie zaczynaj od "Jako AI...".`;
+
+const AI_NAME = "HackerAI";
+const terminal = document.getElementById("terminal");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+const dot = document.getElementById("dot");
+const modeLabel = document.getElementById("modeLabel");
+const fileInput = document.getElementById("fileInput");
+const attachBar = document.getElementById("attachBar");
+
+let pendingFile = null; // { name, mime, dataUrl, size, isImage }
+
+const cfg = {
+  mode: localStorage.getItem("hai_mode") || "live",
+  provider: localStorage.getItem("hai_provider") || "groq",
+  key: localStorage.getItem("hai_key") || "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",
+  save() {
+    localStorage.setItem("hai_mode", this.mode);
+    localStorage.setItem("hai_provider", this.provider);
+    localStorage.setItem("hai_key", this.key);
+  }
+};
+
+const memory = {
+  history: JSON.parse(localStorage.getItem("hai_hist") || "[]"),
+  save() { localStorage.setItem("hai_hist", JSON.stringify(this.history.slice(-30))); },
+  add(role, content) {
+    this.history.push({ role, content: typeof content === "string" ? content : "[multimodal]" });
+    if (this.history.length > 30) this.history.shift();
+    this.save();
+  }
+};
+
+function localReply(text) {
+  const lower = (text || "").toLowerCase().trim();
+  if (lower === "help" || lower === "/help" || lower === "?") {
+    return `Komendy: /help /status /clear
+Dołącz zdjęcie przyciskiem 📎 – AI je opisze/przeczyta.
+Działa z Groq (Qwen vision) i Gemini.`;
+  }
+  if (lower === "status" || lower === "/status") {
+    return `HackerAI | ${cfg.mode} | ${cfg.provider}\nHistoria: ${memory.history.length}`;
+  }
+  if (lower === "clear" || lower === "/clear") return "__CLEAR__";
+  if (/cześć|hej|siema|hello/i.test(text)) return "Cześć. Możesz pisać albo dołączyć zdjęcie 📎.";
+  return "Tryb lokalny – bez AI. Włącz LIVE w ⚙ API. Do analizy zdjęć potrzebny jest LIVE.";
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function compressImageIfNeeded(dataUrl, maxSide, quality) {
+  maxSide = maxSide || 1280;
+  quality = quality || 0.82;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w <= maxSide && h <= maxSide && dataUrl.length < 1.2e6) {
+        resolve(dataUrl);
+        return;
+      }
+      if (w > h) { h = Math.round(h * maxSide / w); w = maxSide; }
+      else { w = Math.round(w * maxSide / h); h = maxSide; }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+async function onFilePicked(file) {
+  if (!file) return;
+  if (file.size > 12 * 1024 * 1024) {
+    addMsg("sys", "Plik za duży (max ~12 MB). Wybierz mniejszy.");
+    return;
+  }
+  let dataUrl = await fileToDataUrl(file);
+  const isImage = file.type.startsWith("image/");
+  if (isImage) dataUrl = await compressImageIfNeeded(dataUrl);
+  pendingFile = {
+    name: file.name,
+    mime: isImage && dataUrl.indexOf("image/jpeg") >= 0 ? "image/jpeg" : (file.type || "application/octet-stream"),
+    dataUrl: dataUrl,
+    size: file.size,
+    isImage: isImage
+  };
+  document.getElementById("attachThumb").src = isImage ? dataUrl : "";
+  document.getElementById("attachThumb").style.display = isImage ? "block" : "none";
+  document.getElementById("attachName").textContent = file.name;
+  document.getElementById("attachInfo").textContent = (file.size / 1024).toFixed(0) + " KB · " + (file.type || "plik");
+  attachBar.classList.add("show");
+  if (!input.value.trim()) input.placeholder = isImage ? "Co mam zrobić ze zdjęciem?" : "Co mam zrobić z plikiem?";
+}
+
+function clearAttach() {
+  pendingFile = null;
+  fileInput.value = "";
+  attachBar.classList.remove("show");
+  input.placeholder = "Pytaj lub dołącz zdjęcie...";
+}
+
+async function callLLM(userText, file) {
+  const key = (cfg.key || "").trim();
+  const provider = cfg.provider;
+  const text = userText || (file ? (file.isImage ? "Opisz to zdjęcie szczegółowo. Jeśli jest tekst – odczytaj go." : "Przeanalizuj ten plik.") : "");
+
+  // Build history (text only for context)
+  const hist = memory.history.slice(-10).map(h => ({
+    role: h.role === "assistant" ? "assistant" : "user",
+    content: h.content
+  }));
+
+  // --- GROQ (vision via qwen) ---
+  if (provider === "groq") {
+    if (!key) throw new Error("Brak klucza Groq");
+    const model = file && file.isImage ? "qwen/qwen3.8-27b" : "openai/gpt-oss-120b";
+    let userContent;
+    if (file && file.isImage) {
+      userContent = [
+        { type: "text", text: text },
+        { type: "image_url", image_url: { url: file.dataUrl } }
+      ];
+    } else if (file && !file.isImage) {
+      // try to read text files client-side
+      if (file.mime.startsWith("text/") || /\.(txt|md|json|csv|log|js|py|html|css)$/i.test(file.name)) {
+        const raw = atob(file.dataUrl.split(",")[1] || "");
+        userContent = text + "\n\n--- PLIK: " + file.name + " ---\n" + raw.slice(0, 15000);
+      } else {
+        userContent = text + "\n\n[Użytkownik dołączył plik " + file.name + " typu " + file.mime + ". Ten model na Groq najlepiej analizuje zdjęcia. Do PDF użyj Gemini w ⚙ API.]";
+      }
+    } else {
+      userContent = text;
+    }
+    const messages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...hist,
+      { role: "user", content: userContent }
+    ];
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify({ model: model, messages: messages, temperature: 0.7, max_tokens: 1500 })
+    });
+    if (!res.ok) throw new Error("Groq " + res.status + ": " + (await res.text()).slice(0, 160));
+    const data = await res.json();
+    return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "(pusto)";
+  }
+
+  // --- GEMINI ---
+  if (provider === "gemini") {
+    if (!key) throw new Error("Wklej klucz Gemini (aistudio.google.com/apikey)");
+    const parts = [];
+    if (file) {
+      const b64 = file.dataUrl.split(",")[1];
+      parts.push({ inline_data: { mime_type: file.mime, data: b64 } });
+    }
+    parts.push({ text: text });
+    const contents = [
+      ...hist.filter(h => h.role === "user" || h.role === "assistant").map(h => ({
+        role: h.role === "assistant" ? "model" : "user",
+        parts: [{ text: h.content }]
+      })),
+      { role: "user", parts: parts }
+    ];
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + encodeURIComponent(key);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: contents,
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1500 }
+      })
+    });
+    if (!res.ok) throw new Error("Gemini " + res.status + ": " + (await res.text()).slice(0, 160));
+    const data = await res.json();
+    return (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) || "(pusto)";
+  }
+
+  // --- LLM7 / OpenRouter text-focused ---
+  if (provider === "llm7" || provider === "openrouter") {
+    if (file && file.isImage) {
+      throw new Error("Ten dostawca w tej wersji nie ma vision. Przełącz na Groq lub Gemini w ⚙ API.");
+    }
+    let bodyText = text;
+    if (file) {
+      try {
+        const raw = atob(file.dataUrl.split(",")[1] || "");
+        bodyText += "\n\n--- " + file.name + " ---\n" + raw.slice(0, 12000);
+      } catch (e) {}
+    }
+    const endpoint = provider === "llm7"
+      ? "https://api.llm7.io/v1/chat/completions"
+      : "https://openrouter.ai/api/v1/chat/completions";
+    const k = key || (provider === "llm7" ? "unused" : "");
+    if (!k) throw new Error("Brak klucza dla " + provider);
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + k,
+        "HTTP-Referer": location.href,
+        "X-Title": "HackerAI"
+      },
+      body: JSON.stringify({
+        model: provider === "openrouter" ? "openrouter/free" : "gpt-oss",
+        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...hist, { role: "user", content: bodyText }],
+        temperature: 0.7,
+        max_tokens: 1200
+      })
+    });
+    if (!res.ok) throw new Error(provider + " " + res.status + ": " + (await res.text()).slice(0, 140));
+    const data = await res.json();
+    return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "(pusto)";
+  }
+
+  throw new Error("Nieznany provider");
+}
+
+async function process(text, file) {
+  const lower = (text || "").toLowerCase().trim();
+  if (["/help", "help", "?", "pomoc"].includes(lower) && !file) return { text: localReply("help"), source: "local" };
+  if (["/status", "status"].includes(lower) && !file) return { text: localReply("status"), source: "local" };
+  if (["/clear", "clear", "cls"].includes(lower) && !file) return { text: "__CLEAR__", source: "local" };
+
+  if (cfg.mode === "local") {
+    return { text: localReply(text || " "), source: "local" };
+  }
+  try {
+    const reply = await callLLM(text, file);
+    return { text: reply, source: "live" };
+  } catch (e) {
+    console.warn(e);
+    return { text: "⚠ " + e.message + "\n\n[lokalnie] " + localReply(text || ""), source: "local" };
+  }
+}
+
+
+// ===== VOICE MODE (Web Speech API) =====
+let recognition = null;
+let isListening = false;
+let speakReplies = localStorage.getItem("hai_speak") === "1";
+
+function initSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  const r = new SR();
+  r.lang = "pl-PL";
+  r.interimResults = true;
+  r.continuous = false;
+  r.maxAlternatives = 1;
+  r.onstart = function() {
+    isListening = true;
+    document.getElementById("btnMic").classList.add("listening");
+    document.getElementById("voiceHint").classList.add("show");
+    document.getElementById("voiceHint").textContent = "🎤 Słucham… mów teraz";
+  };
+  r.onend = function() {
+    isListening = false;
+    document.getElementById("btnMic").classList.remove("listening");
+    document.getElementById("voiceHint").classList.remove("show");
+  };
+  r.onerror = function(e) {
+    isListening = false;
+    document.getElementById("btnMic").classList.remove("listening");
+    document.getElementById("voiceHint").classList.remove("show");
+    if (e.error === "not-allowed") {
+      const promptText = "Brak dostępu do mikrofonu. Proszę, kliknij ikona kłódki lub suwaków obok adresu strony na górze przeglądarki i włącz uprawnienie do mikrofonu, a następnie spróbuj ponownie.";
+      addMsg("sys", promptText);
+      const prevSpeak = speakReplies;
+      speakReplies = true;
+      speakText(promptText);
+      speakReplies = prevSpeak;
+    } else if (e.error !== "aborted" && e.error !== "no-speech") {
+      addMsg("sys", "Mikrofon: " + e.error);
+    }
+  };
+  r.onresult = function(e) {
+    let finalTxt = "";
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const tr = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalTxt += tr;
+      else interim += tr;
+    }
+    if (finalTxt) {
+      input.value = (input.value ? input.value + " " : "") + finalTxt.trim();
+      input.dispatchEvent(new Event("input"));
+      setTimeout(function() { handleSend(); }, 250);
+    } else if (interim) {
+      document.getElementById("voiceHint").textContent = "🎤 " + interim;
+    }
+  };
+  return r;
+}
+
+function toggleMic() {
+  if (!recognition) {
+    recognition = initSpeech();
+    if (!recognition) {
+      addMsg("sys", "Przeglądarka nie obsługuje rozpoznawania mowy.\nAndroid: Chrome. iPhone: Safari bywa ograniczone.");
+      return;
+    }
+  }
+  if (isListening) {
+    try { recognition.stop(); } catch (e) {}
+    return;
+  }
+  try { window.speechSynthesis && speechSynthesis.cancel(); } catch (e) {}
+  try {
+    recognition.start();
+  } catch (e) {
+    addMsg("sys", "Nie udało się uruchomić mikrofonu: " + e.message);
+  }
+}
+
+function speakText(text) {
+  if (!speakReplies || !window.speechSynthesis) return;
+  try { speechSynthesis.cancel(); } catch (e) {}
+  const clean = String(text)
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/[`*_#>]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 1200);
+  if (!clean) return;
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = "pl-PL";
+  u.rate = 1.05;
+  u.pitch = 1;
+  const voices = speechSynthesis.getVoices() || [];
+  const pl = voices.find(function(v) { return v.lang && v.lang.toLowerCase().indexOf("pl") === 0; });
+  if (pl) u.voice = pl;
+  speechSynthesis.speak(u);
+}
+
+function toggleSpeak() {
+  speakReplies = !speakReplies;
+  localStorage.setItem("hai_speak", speakReplies ? "1" : "0");
+  const btn = document.getElementById("btnSpeak");
+  btn.classList.toggle("speak-on", speakReplies);
+  btn.title = speakReplies ? "Czytanie ON – kliknij by wyłączyć" : "Czytaj odpowiedzi na głos";
+  addMsg("sys", speakReplies ? "🔊 Czytanie odpowiedzi: WŁĄCZONE" : "🔊 Czytanie odpowiedzi: wyłączone");
+  if (!speakReplies) try { speechSynthesis.cancel(); } catch (e) {}
+}
+
+if (window.speechSynthesis) {
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = function() { speechSynthesis.getVoices(); };
+}
+
+
+function updateUI() {
+  modeLabel.textContent = cfg.mode === "live" ? ("LIVE · " + cfg.provider) : "LOCAL";
+  dot.className = "status-dot" + (cfg.mode === "local" ? " off" : "");
+}
+
+function addMsg(role, content, source, imageDataUrl) {
+  const div = document.createElement("div");
+  div.className = "msg msg-" + role;
+  const labels = { user: "Ty", ai: AI_NAME, sys: "SYSTEM" };
+  let badge = "";
+  if (role === "ai" && source) {
+    badge = source === "live" ? '<span class="badge live">AI</span>' : '<span class="badge local">local</span>';
+  }
+  div.innerHTML = '<div class="msg-header">' + (labels[role] || role) + " " + badge + '</div><div class="msg-body"></div>';
+  const body = div.querySelector(".msg-body");
+  body.textContent = content || "";
+  if (imageDataUrl) {
+    const img = document.createElement("img");
+    img.className = "preview";
+    img.src = imageDataUrl;
+    body.appendChild(img);
+  }
+  terminal.appendChild(div);
+  terminal.scrollTop = terminal.scrollHeight;
+  if (role === "ai" && source === "live") {
+    try { speakText(content); } catch (e) {}
+  }
+}
+
+function showBanner() {
+  const b = document.createElement("div");
+  b.className = "banner";
+  b.innerHTML = "<pre>HackerAI by Dominik Kozok ©\nGhostProtocol · Vision ON</pre>";
+  terminal.appendChild(b);
+  addMsg("sys", "Gotowy. 🎤 = mów · 🔊 = AI czyta odpowiedzi · 📎 = zdjęcie.\nGroq + Qwen vision. HackerAI by Dominik Kozok ©");
+}
+
+async function handleSend() {
+  const text = input.value.trim();
+  const file = pendingFile;
+  if (!text && !file) return;
+
+  addMsg("user", text || (file ? ("[załącznik: " + file.name + "]") : ""), null, file && file.isImage ? file.dataUrl : null);
+  memory.add("user", text || ("[plik " + (file && file.name) + "]"));
+  input.value = "";
+  input.style.height = "auto";
+  const sentFile = file;
+  clearAttach();
+
+  const thinking = document.createElement("div");
+  thinking.className = "thinking";
+  thinking.textContent = sentFile ? "… analizuję załącznik" : "… łączę z AI";
+  terminal.appendChild(thinking);
+  terminal.scrollTop = terminal.scrollHeight;
+  sendBtn.disabled = true;
+
+  try {
+    const result = await process(text, sentFile);
+    thinking.remove();
+    if (result.text === "__CLEAR__") {
+      terminal.innerHTML = "";
+      addMsg("sys", "Ekran wyczyszczony.");
+      return;
+    }
+    addMsg("ai", result.text, result.source);
+    memory.add("assistant", result.text);
+    if (result.source === "live") dot.className = "status-dot";
+    else if (result.text.indexOf("⚠") === 0) dot.className = "status-dot err";
+  } catch (e) {
+    thinking.remove();
+    addMsg("sys", "Błąd: " + e.message);
+    dot.className = "status-dot err";
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+document.getElementById("btnAttach").onclick = () => fileInput.click();
+document.getElementById("btnMic").onclick = toggleMic;
+document.getElementById("btnSpeak").onclick = toggleSpeak;
+if (speakReplies) document.getElementById("btnSpeak").classList.add("speak-on");
+
+fileInput.onchange = () => { if (fileInput.files[0]) onFilePicked(fileInput.files[0]); };
+document.getElementById("attachClear").onclick = clearAttach;
+sendBtn.addEventListener("click", handleSend);
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+});
+input.addEventListener("input", () => {
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 120) + "px";
+});
+document.getElementById("chips").addEventListener("click", e => {
+  const c = e.target.closest(".chip");
+  if (!c) return;
+  input.value = c.dataset.q;
+  handleSend();
+});
+
+const modal = document.getElementById("modal");
+document.getElementById("btnSettings").onclick = () => {
+  const pwd = prompt("Podaj hasło dostępu do ustawień API:");
+  if (pwd !== "Domotokoks1@") {
+    alert("Dostęp zabroniony! Nieprawidłowe hasło.");
+    return;
+  }
+  document.getElementById("cfgMode").value = cfg.mode;
+  document.getElementById("cfgProvider").value = cfg.provider;
+  document.getElementById("cfgKey").value = cfg.key;
+  modal.classList.add("open");
+};
+document.getElementById("btnClose").onclick = () => modal.classList.remove("open");
+document.getElementById("btnSave").onclick = () => {
+  cfg.mode = document.getElementById("cfgMode").value;
+  cfg.provider = document.getElementById("cfgProvider").value;
+  cfg.key = document.getElementById("cfgKey").value.trim();
+  cfg.save();
+  updateUI();
+  modal.classList.remove("open");
+  addMsg("sys", "Zapisano: " + cfg.mode + " · " + cfg.provider);
+};
+modal.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("open"); });
+
+updateUI();
+showBanner();
+input.focus();
+</script>
+</body>
+</html>
